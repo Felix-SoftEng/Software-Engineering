@@ -1,0 +1,224 @@
+# IMPORTING LIBRARIES
+from machine import Pin, I2C
+import utime
+import machine
+from ssd1306 import SSD1306_I2C
+
+# ASSIGNING OUTPUT PINS
+Eight = Pin(5, Pin.OUT)
+Four = Pin(9, Pin.OUT)
+Two = Pin(12, Pin.OUT)
+One = Pin(15, Pin.OUT)
+Green = Pin(2, Pin.OUT)
+
+# ASSIGNING INPUT PINS
+PB1 = machine.Pin(18, machine.Pin.IN, machine.Pin.PULL_UP) #PB1 is pushbutton one.
+PB2 = machine.Pin(26, machine.Pin.IN, machine.Pin.PULL_UP) #PB2 is pushbutton two.
+PB3 = machine.Pin(28, machine.Pin.IN, machine.Pin.PULL_UP) #PB3 is pushbutton three.
+
+
+# #oled
+i2c=I2C(0, sda= Pin(16), scl= Pin(17), freq=400000)
+#        
+oled = SSD1306_I2C(128,32,i2c)
+
+#green led which shows if code is unlock
+Green.low()
+
+# ASSIGNING VARIABLES
+currentStep = 10  # Setting the variable lastStep, which will keep track of the last step taken to 10.
+
+newStep = 10   # Setting is the next step that is required to keep the stepper motor sequencing CW or CCW.
+
+stepCount = 0  # Setting the variable stepCount, which keeps track to the number of steps taken to 0.
+
+stepDelay = 0.25  # This sets the amount of time delayed after each step is taken.
+
+loopDelay = 0.0  # This sets the amount of time delayed after a loop has finished.
+
+"""
+MOVING THE DIAL
+This part of the program will move the dial so that it is pointing to zero.
+"""
+
+def Step10():
+    Eight.value(1)
+    Four.value(0)
+    Two.value(1)
+    One.value(0)
+    utime.sleep(stepDelay)
+   
+def Step9():
+    Eight.value(1)
+    Four.value(0)
+    Two.value(0)
+    One.value(1)
+    utime.sleep(stepDelay)
+   
+def Step5():
+    Eight.value(0)
+    Four.value(1)
+    Two.value(0)
+    One.value(1)
+    utime.sleep(stepDelay)
+   
+def Step6():
+    Eight.value(0)
+    Four.value(1)
+    Two.value(1)
+    One.value(0)
+    utime.sleep(stepDelay)
+   
+# MOVING THE DIAL CW Push Button 1 NOTE: On the testing dials it will be backwards.  
+def MoveCW(currentStep):
+    if currentStep == 10:
+        newStep = 9
+        Step9()
+        return newStep
+       
+    elif currentStep == 9:
+        newStep = 5
+        Step5()
+        return newStep
+       
+    elif currentStep == 5:
+        newStep = 6
+        Step6()
+        return newStep
+       
+    elif currentStep == 6:
+        newStep = 10
+        Step10()
+        return newStep
+
+       
+# MOVING THE DIAL CCW  Push Button 2  NOTE: On the testing dials it will be backwards.
+def MoveCCW(currentStep):
+    if currentStep == 10:
+        newStep = 6
+        Step6()
+        return newStep
+       
+    elif currentStep == 9:
+        newStep = 10
+        Step10()
+        return newStep
+       
+    elif currentStep == 5:
+        newStep = 9
+        Step9()
+        return newStep
+       
+    elif currentStep == 6:
+        newStep = 5
+        Step5()
+        return newStep
+   
+
+set0 = (input("Is Dial Set to 0?: (y/n): "))
+if set0 == "y":
+    movedial = False  
+else:
+    print("Press 3rd Button After Adjusting To Zero")
+    movedial = True
+   
+
+
+while movedial:
+   
+    if PB1.value() == 0:
+        print("PB1 pushed.")
+        newStep = MoveCW(newStep)
+        currentStep = newStep
+        print()
+        print()
+        utime.sleep(loopDelay)
+
+    elif PB2.value() == 0:
+        print("PB2 pushed.")
+        newStep = MoveCCW(newStep)
+        currentStep = newStep
+        print()
+        print()
+        utime.sleep(loopDelay)
+       
+    elif PB3.value() == 0:
+        print("PB3 pushed.")
+        utime.sleep(0.6)
+        movedial = False
+       
+    utime.sleep(0.1)
+   
+   
+#asking for lock code
+oled.text('Press 3rd Button',0,0)
+oled.text('To Enter Your', 0, 10)
+oled.text('Code!', 0, 20)
+for i in range(0,164):
+    oled.show()
+    utime.sleep(0.01)
+
+test1 = True
+while test1 == True:
+    if PB3.value() == 0:
+        utime.sleep(0.6)
+        LockCode1 = int(input("Enter First Lock Combination: "))
+        LockCode2 = int(input("Enter Second Lock Combination: "))
+        LockCode3 = int(input("Enter Third Lock Combination: "))
+        for i in range(0,164):
+            oled.scroll(1,0)
+            oled.show()
+            utime.sleep(0.01)
+        test1 = False
+
+
+
+oled.text('Your Code is:',0,0)
+oled.text(str(LockCode1), 0, 10)
+oled.text(str(LockCode2), 20, 10)
+oled.text(str(LockCode3), 40, 10)
+for i in range(0,164):
+    oled.show()
+    utime.sleep(0.01)
+#moves after getting code
+finish = True
+while finish:
+   
+    FirstMovement = round(LockCode1/60*48)
+    if LockCode1 > LockCode2:
+        SecondMovement = round((60+(LockCode1-LockCode2))/60*48)
+    else:
+        SecondMovement = round((60+LockCode1+(60-LockCode2))/60*48)
+       
+    if LockCode3 > LockCode2:
+        ThirdMovement = round((LockCode3-LockCode2)/60*48)
+    else:
+        ThirdMovement = round((60+LockCode2)+LockCode3/60*48)
+       
+       
+       
+    for i in range(FirstMovement):  
+        newStep = MoveCW(newStep)
+        currentStep = newStep
+        utime.sleep(loopDelay)
+   
+    for i in range(SecondMovement):  
+        newStep = MoveCCW(newStep)
+        currentStep = newStep
+        utime.sleep(loopDelay)
+       
+    for i in range(ThirdMovement):  
+        newStep = MoveCW(newStep)
+        currentStep = newStep
+        utime.sleep(loopDelay)  
+
+    for i in range(0,164):
+        oled.scroll(1,0)
+        oled.show()
+        utime.sleep(0.01)
+ 
+    oled.text('Lock Opened!',0,0)
+    Green.high()
+    oled.show()
+    utime.sleep(0.01)
+    finish = False
